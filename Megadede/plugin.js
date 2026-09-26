@@ -8,11 +8,19 @@
                 }
             ]);
 
+            const r = Array.isArray(result) ? result[0] : result;
+            const body = r && r.body != null ? String(r.body) : "";
+
             cb({
                 success: true,
                 data: {
                     "HTTP TEST": [{
-                        title: JSON.stringify(result).slice(0, 500),
+                        title:
+                            "code=" + (r && r.code) +
+                            " | statusCode=" + (r && r.statusCode) +
+                            " | bodyType=" + typeof (r && r.body) +
+                            " | bodyLength=" + body.length +
+                            " | body=" + body.slice(0, 300),
                         url: "test://http",
                         type: "movie"
                     }]
