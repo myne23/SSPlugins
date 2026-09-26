@@ -196,38 +196,110 @@
 
     async function getHome(cb) {
         try {
-            const pages = await http_parallel([
+            const categories = [
                 {
-                    url: BASE_URL + "/peliculas",
-                    method: "GET"
+                    name: "Películas",
+                    path: "/peliculas",
+                    type: "movie"
                 },
                 {
-                    url: BASE_URL + "/series",
-                    method: "GET"
+                    name: "Series",
+                    path: "/series",
+                    type: "series"
                 },
                 {
-                    url: BASE_URL + "/animes",
-                    method: "GET"
+                    name: "Animes",
+                    path: "/animes",
+                    type: "anime"
                 }
-            ]);
+            ];
 
-            const responses = Array.isArray(pages) ? pages : [pages];
+            /*
+             * Megadede uses ?page=N for pagination.
+             *
+             * Fetch 5 pages of each category concurrently.
+             * Page 1 is the same content we already know works.
+             */
+            const requests = [];
 
-            const movieHtml = String(responses[0]?.body ?? "");
-            const seriesHtml = String(responses[1]?.body ?? "");
-            const animeHtml = String(responses[2]?.body ?? "");
+            for (const category of categories) {
+                for (let page = 1; page <= 5; page++) {
+                    requests.push({
+                        url:
+                            BASE_URL +
+                            category.path +
+                            "?page=" +
+                            page,
+                        method: "GET",
+                        category: category.name,
+                        type: category.type,
+                        page: page
+                    });
+                }
+            }
 
-            const movies = parseArticles(movieHtml, "movie");
-            const series = parseArticles(seriesHtml, "series");
-            const animes = parseArticles(animeHtml, "anime");
+            const responses = await http_parallel(requests);
+
+            const data = {};
+
+            for (const category of categories) {
+                data[category.name] = [];
+            }
+
+            const seen = {
+                "Películas": new Set(),
+                "Series": new Set(),
+                "Animes": new Set()
+            };
+
+            const responseList = Array.isArray(responses)
+                ? responses
+                : [];
+
+            for (let i = 0; i < requests.length; i++) {
+                const request = requests[i];
+                const response = responseList[i];
+
+                if (!response) {
+                    continue;
+                }
+
+                const code = response.code ?? response.statusCode ?? 0;
+
+                if (code >= 400) {
+                    continue;
+                }
+
+                const html = String(response.body ?? "");
+
+                if (!html) {
+                    continue;
+                }
+
+                const items = parseArticles(
+                    html,
+                    request.type
+                );
+
+                for (const item of items) {
+                    const itemUrl = String(item.url || "");
+
+                    if (!itemUrl) {
+                        continue;
+                    }
+
+                    if (seen[request.category].has(itemUrl)) {
+                        continue;
+                    }
+
+                    seen[request.category].add(itemUrl);
+                    data[request.category].push(item);
+                }
+            }
 
             cb({
                 success: true,
-                data: {
-                    "Películas": movies,
-                    "Series": series,
-                    "Animes": animes
-                }
+                data: data
             });
         } catch (e) {
             cb({
