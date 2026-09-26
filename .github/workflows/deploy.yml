@@ -1,0 +1,23 @@
+name: Deploy SkyStream Repository
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate repository
+        run: |
+          test -f repo.json
+          test -f plugins.json
+          python3 -m json.tool repo.json >/dev/null
+          python3 -m json.tool plugins.json >/dev/null
+          echo "SkyStream repository validated successfully"
