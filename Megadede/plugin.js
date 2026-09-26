@@ -1,24 +1,33 @@
 (function() {
-    function getHome(cb) {
-        var keys = Object.getOwnPropertyNames(globalThis)
-            .filter(function(k) {
-                return /fetch|http|request|network|xhr|url/i.test(k);
-            })
-            .sort();
+    async function getHome(cb) {
+        try {
+            const result = await http_parallel([
+                {
+                    url: "https://megadede.mobi/peliculas",
+                    method: "GET"
+                }
+            ]);
 
-        cb({
-            success: true,
-            data: {
-                "Runtime": [{
-                    title: "Globals: " + (keys.length ? keys.join(", ") : "NINGUNO"),
-                    url: "test://runtime",
-                    type: "movie"
-                }]
-            }
-        });
+            cb({
+                success: true,
+                data: {
+                    "HTTP TEST": [{
+                        title: JSON.stringify(result).slice(0, 500),
+                        url: "test://http",
+                        type: "movie"
+                    }]
+                }
+            });
+        } catch (e) {
+            cb({
+                success: false,
+                errorCode: "NETWORK_ERROR",
+                message: String(e)
+            });
+        }
     }
 
-    function search(query, page, cb) {
+    async function search(query, page, cb) {
         cb({ success: true, data: [] });
     }
 
@@ -26,7 +35,7 @@
         cb({
             success: true,
             data: new MultimediaItem({
-                title: "Runtime test",
+                title: "HTTP test",
                 url: url,
                 type: "movie"
             })
