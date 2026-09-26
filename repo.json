@@ -1,0 +1,7 @@
+{
+  "name": "Marcelo SkyStream Plugins",
+  "packageName": "com.mmilew.skystream.repo",
+  "manifestVersion": 1,
+  "pluginLists": ["plugins.json"],
+  "description": "SkyStream plugins by mmilew"
+}
