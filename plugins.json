@@ -3,7 +3,7 @@
     "packageName": "com.megadede.skystream",
     "name": "Megadede",
     "version": 1,
-    "url": "plugin.js",
-    "pluginJson": "plugin.json"
+    "url": "Megadede/plugin.js",
+    "pluginJson": "Megadede/plugin.json"
   }
 ]
