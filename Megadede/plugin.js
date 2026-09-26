@@ -557,17 +557,92 @@
     }
 
     async function loadStreams(url, cb) {
-        /*
-         * Streams will be implemented separately.
-         * For now we only verify that the content page loads.
-         */
         try {
-            await httpGet(url);
+            const result = await http_parallel([
+                {
+                    url: url,
+                    method: "GET"
+                }
+            ]);
+
+            const response = Array.isArray(result)
+                ? result[0]
+                : result;
+
+            const html = String(response?.body ?? "");
+
+            const found = [];
+
+            /*
+             * Direct vidurl references.
+             */
+            const vidurlRegex =
+                /(?:https?:\/\/[^"'\\s<>]+)?\/vidurl\/[^"'\\s<>]+/gi;
+
+            let match;
+
+            while ((match = vidurlRegex.exec(html)) !== null) {
+                found.push(
+                    "VIDURL: " + match[0]
+                );
+            }
+
+            /*
+             * changeServer('...')
+             */
+            const changeServerRegex =
+                /changeServer\s*\(\s*['"]([^'"]+)['"]\s*\)/gi;
+
+            while ((match = changeServerRegex.exec(html)) !== null) {
+                found.push(
+                    "CHANGE: " + match[1]
+                );
+            }
+
+            /*
+             * Iframes.
+             */
+            const iframeRegex =
+                /<iframe[^>]+src=["']([^"']+)["']/gi;
+
+            while ((match = iframeRegex.exec(html)) !== null) {
+                found.push(
+                    "IFRAME: " + match[1]
+                );
+            }
+
+            /*
+             * Also look for the known Embed69 host.
+             */
+            const embed69Regex =
+                /https?:\/\/[^"'\\s<>]*embed69[^"'\\s<>]*/gi;
+
+            while ((match = embed69Regex.exec(html)) !== null) {
+                found.push(
+                    "EMBED69: " + match[0]
+                );
+            }
+
+            /*
+             * Remove duplicates.
+             */
+            const unique = [...new Set(found)];
 
             cb({
                 success: true,
-                data: []
+                data: unique.map((item, index) =>
+                    new StreamResult({
+                        url: "test://" + index,
+                        quality: item
+                    })
+                )
             });
+
+            console.log(
+                "Megadede loadStreams diagnostic:",
+                unique
+            );
+
         } catch (e) {
             cb({
                 success: false,
