@@ -1,0 +1,15 @@
+[
+  {
+    "packageName": "com.megadede.skystream",
+    "name": "Megadede",
+    "version": 1,
+    "baseUrl": "https://megadede.mobi",
+    "language": "es",
+    "categories": [
+      "movie",
+      "tv",
+      "anime"
+    ],
+    "url": "https://raw.githubusercontent.com/myne23/SSPlugins/main/dist/com.megadede.skystream.sky"
+  }
+]
