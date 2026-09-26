@@ -1,11 +1,17 @@
 (function() {
     function getHome(cb) {
+        var keys = Object.getOwnPropertyNames(globalThis)
+            .filter(function(k) {
+                return /fetch|http|request|network|xhr|url/i.test(k);
+            })
+            .sort();
+
         cb({
             success: true,
             data: {
-                Test: [{
-                    title: "fetch = " + typeof fetch,
-                    url: "test://fetch",
+                "Runtime": [{
+                    title: "Globals: " + (keys.length ? keys.join(", ") : "NINGUNO"),
+                    url: "test://runtime",
                     type: "movie"
                 }]
             }
@@ -13,21 +19,14 @@
     }
 
     function search(query, page, cb) {
-        cb({
-            success: true,
-            data: [{
-                title: "search fetch = " + typeof fetch,
-                url: "test://search",
-                type: "movie"
-            }]
-        });
+        cb({ success: true, data: [] });
     }
 
     function load(url, cb) {
         cb({
             success: true,
             data: new MultimediaItem({
-                title: "load fetch = " + typeof fetch,
+                title: "Runtime test",
                 url: url,
                 type: "movie"
             })
@@ -35,10 +34,7 @@
     }
 
     function loadStreams(url, cb) {
-        cb({
-            success: true,
-            data: []
-        });
+        cb({ success: true, data: [] });
     }
 
     globalThis.getHome = getHome;
