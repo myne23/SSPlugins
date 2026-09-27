@@ -809,13 +809,13 @@
 
     async function loadStreams(url, cb) {
         try {
-            console.log("Cargando streams de:", url);
+            console.log("[Megadede] Solicitando episode URL:", url);
 
             const pageResult = await http_parallel([{
                 url: url,
                 method: "GET",
                 headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                     "Referer": new URL(url).origin
                 }
             }]);
@@ -823,37 +823,44 @@
             const pageRes = Array.isArray(pageResult) ? pageResult[0] : pageResult;
             const html = String(pageRes?.body ?? "");
 
+            console.log("[Megadede] Longitud HTML pagina:", html.length);
+
+            // Capturar TODOS los iframes o enlaces a reproductores/embeds
             const iframeRegex = /<iframe[^>]+src=["\']([^"\']+)["\']/gi;
             const embedUrls = [];
             let match;
             while ((match = iframeRegex.exec(html)) !== null) {
                 let iframeSrc = match[1];
                 if (iframeSrc.startsWith("//")) iframeSrc = "https:" + iframeSrc;
-                if (iframeSrc.includes("embed69") || iframeSrc.includes("player")) {
-                    embedUrls.push(iframeSrc);
-                }
+                embedUrls.push(iframeSrc);
             }
 
-            console.log("Embeds encontrados:", embedUrls.length);
+            console.log("[Megadede] Total iframes detectados:", embedUrls.length);
+            console.log("[Megadede] URLs de iframes:", JSON.stringify(embedUrls));
+
             const streams = [];
 
             for (let embedUrl of embedUrls) {
                 try {
+                    console.log("[Megadede] Analizando embed:", embedUrl);
                     const embedResult = await http_parallel([{
                         url: embedUrl,
                         method: "GET",
                         headers: {
                             "Referer": url,
-                            "User-Agent": "Mozilla/5.0"
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                         }
                     }]);
 
                     const embedRes = Array.isArray(embedResult) ? embedResult[0] : embedResult;
                     const embedHtml = String(embedRes?.body ?? "");
 
+                    console.log("[Megadede] Longitud HTML de embed:", embedHtml.length);
+
                     // STREAMWISH
                     const wishMatch = embedHtml.match(/https?:\/\/[^\s"\'<>]*(?:streamwish|awish|strwish)[^\s"\'<]+/i);
                     if (wishMatch) {
+                        console.log("[Megadede] Encontrado Streamwish:", wishMatch[0]);
                         const streamUrl = await resolveStreamwish(wishMatch[0]);
                         if (streamUrl) streams.push({ name: "Streamwish", url: streamUrl, quality: "Auto" });
                     }
@@ -861,6 +868,7 @@
                     // VIDHIDE
                     const vidhideMatch = embedHtml.match(/https?:\/\/[^\s"\'<>]*(?:vidhide|fileLions)[^\s"\'<]+/i);
                     if (vidhideMatch) {
+                        console.log("[Megadede] Encontrado Vidhide:", vidhideMatch[0]);
                         const streamUrl = await resolveVidhide(vidhideMatch[0]);
                         if (streamUrl) streams.push({ name: "Vidhide", url: streamUrl, quality: "Auto" });
                     }
@@ -868,20 +876,22 @@
                     // VOE
                     const voeMatch = embedHtml.match(/https?:\/\/[^\s"\'<>]*(?:voe\.sx|voe-unblock)[^\s"\'<]+/i);
                     if (voeMatch) {
+                        console.log("[Megadede] Encontrado VOE:", voeMatch[0]);
                         const streamUrl = await resolveVoe(voeMatch[0]);
                         if (streamUrl) streams.push({ name: "VOE", url: streamUrl, quality: "Auto" });
                     }
 
                 } catch (e) {
-                    console.error("Error al procesar embed:", e);
+                    console.error("[Megadede] Error procesando embed:", e);
                 }
             }
 
+            console.log("[Megadede] Total streams encontrados:", streams.length);
             if (cb && typeof cb === "function") cb(streams);
             return streams;
 
         } catch (error) {
-            console.error("Error en loadStreams:", error);
+            console.error("[Megadede] Error general en loadStreams:", error);
             if (cb && typeof cb === "function") cb([]);
             return [];
         }
