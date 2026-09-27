@@ -920,10 +920,9 @@
         } catch { return null; }
     }
 
-    return {
-        getHome,
-        search,
-        load,
-        loadStreams
-    };
+    // Exponer metodos al scope global
+    globalThis.getHome = getHome;
+    globalThis.search = search;
+    globalThis.load = load;
+    globalThis.loadStreams = loadStreams;
 })();
