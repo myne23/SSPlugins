@@ -921,6 +921,9 @@
     }
 
     return {
+        getHome,
+        search,
+        load,
         loadStreams
     };
 })();
