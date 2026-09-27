@@ -837,7 +837,6 @@
             }
 
             console.log("Embeds encontrados:", embedUrls.length);
-
             const streams = [];
 
             // 3. Procesar cada Embed69
@@ -855,21 +854,21 @@
                     const embedRes = Array.isArray(embedResult) ? embedResult[0] : embedResult;
                     const embedHtml = String(embedRes?.body ?? "");
 
-                    // --- STREAMWISH ---
+                    // STREAMWISH
                     const wishMatch = embedHtml.match(/https?:\/\/[^\s"'<>]*(?:streamwish|awish|strwish)[^\s"'<>]+/i);
                     if (wishMatch) {
                         const streamUrl = await resolveStreamwish(wishMatch[0]);
                         if (streamUrl) streams.push({ name: "Streamwish", url: streamUrl, quality: "Auto" });
                     }
 
-                    // --- VIDHIDE ---
+                    // VIDHIDE
                     const vidhideMatch = embedHtml.match(/https?:\/\/[^\s"'<>]*(?:vidhide|fileLions)[^\s"'<>]+/i);
                     if (vidhideMatch) {
                         const streamUrl = await resolveVidhide(vidhideMatch[0]);
                         if (streamUrl) streams.push({ name: "Vidhide", url: streamUrl, quality: "Auto" });
                     }
 
-                    // --- VOE ---
+                    // VOE
                     const voeMatch = embedHtml.match(/https?:\/\/[^\s"'<>]*(?:voe\.sx|voe-unblock)[^\s"'<>]+/i);
                     if (voeMatch) {
                         const streamUrl = await resolveVoe(voeMatch[0]);
@@ -921,5 +920,7 @@
         } catch { return null; }
     }
 
-    }
-};
+    return {
+        loadStreams
+    };
+})();
