@@ -809,75 +809,114 @@
 
     async function loadStreams(url, cb) {
         try {
-            const base = new URL(url).origin;
+            console.log("Cargando streams de:", url);
 
-            const result = await http_parallel([
-                {
-                    url: base + "/main.js?v=1.1.9",
-                    method: "GET",
-                    headers: {
-                        "Referer": url,
-                        "User-Agent": "Mozilla/5.0"
-                    }
+            // 1. Obtener el HTML de la pagina del episodio
+            const pageResult = await http_parallel([{
+                url: url,
+                method: "GET",
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "Referer": new URL(url).origin
                 }
-            ]);
+            }]);
 
-            const response = Array.isArray(result) ? result[0] : result;
-            const js = String(response?.body ?? "");
+            const pageRes = Array.isArray(pageResult) ? pageResult[0] : pageResult;
+            const html = String(pageRes?.body ?? "");
 
-            console.log("JS LENGTH:", js.length);
-
-            const targets = [
-                "_0x2b90d0",
-                "_0x30a87c",
-                "_0x5447",
-                "_0xe8494e",
-                "finalURL",
-                "irWz"
-            ];
-
-            for (const name of targets) {
-                console.log("");
-                console.log("========================================");
-                console.log("TARGET:", name);
-
-                let pos = 0;
-                let count = 0;
-
-                while ((pos = js.indexOf(name, pos)) >= 0) {
-                    console.log("");
-                    console.log("POS:", pos);
-                    console.log("----------------------------------------");
-
-                    console.log(
-                        js.substring(
-                            Math.max(0, pos - 1000),
-                            Math.min(js.length, pos + 2500)
-                        )
-                    );
-
-                    pos += name.length;
-                    count++;
-
-                    if (count >= 5) break;
+            // 2. Extraer los iframes / enlaces de Embed69
+            const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
+            const embedUrls = [];
+            let match;
+            while ((match = iframeRegex.exec(html)) !== null) {
+                let iframeSrc = match[1];
+                if (iframeSrc.startsWith("//")) iframeSrc = "https:" + iframeSrc;
+                if (iframeSrc.includes("embed69") || iframeSrc.includes("player")) {
+                    embedUrls.push(iframeSrc);
                 }
-
-                console.log("COUNT SHOWN:", count);
             }
 
-            cb({success:true,data:[]});
+            console.log("Embeds encontrados:", embedUrls.length);
 
-        } catch(e) {
-            console.log("ERROR:", String(e));
+            const streams = [];
 
-            cb({
-                success:false,
-                error:String(e)
-            });
+            // 3. Procesar cada Embed69
+            for (let embedUrl of embedUrls) {
+                try {
+                    const embedResult = await http_parallel([{
+                        url: embedUrl,
+                        method: "GET",
+                        headers: {
+                            "Referer": url,
+                            "User-Agent": "Mozilla/5.0"
+                        }
+                    }]);
+
+                    const embedRes = Array.isArray(embedResult) ? embedResult[0] : embedResult;
+                    const embedHtml = String(embedRes?.body ?? "");
+
+                    // --- STREAMWISH ---
+                    const wishMatch = embedHtml.match(/https?:\/\/[^\s"'<>]*(?:streamwish|awish|strwish)[^\s"'<>]+/i);
+                    if (wishMatch) {
+                        const streamUrl = await resolveStreamwish(wishMatch[0]);
+                        if (streamUrl) streams.push({ name: "Streamwish", url: streamUrl, quality: "Auto" });
+                    }
+
+                    // --- VIDHIDE ---
+                    const vidhideMatch = embedHtml.match(/https?:\/\/[^\s"'<>]*(?:vidhide|fileLions)[^\s"'<>]+/i);
+                    if (vidhideMatch) {
+                        const streamUrl = await resolveVidhide(vidhideMatch[0]);
+                        if (streamUrl) streams.push({ name: "Vidhide", url: streamUrl, quality: "Auto" });
+                    }
+
+                    // --- VOE ---
+                    const voeMatch = embedHtml.match(/https?:\/\/[^\s"'<>]*(?:voe\.sx|voe-unblock)[^\s"'<>]+/i);
+                    if (voeMatch) {
+                        const streamUrl = await resolveVoe(voeMatch[0]);
+                        if (streamUrl) streams.push({ name: "VOE", url: streamUrl, quality: "Auto" });
+                    }
+
+                } catch (e) {
+                    console.error("Error al procesar embed:", e);
+                }
+            }
+
+            if (cb && typeof cb === "function") cb(streams);
+            return streams;
+
+        } catch (error) {
+            console.error("Error en loadStreams:", error);
+            if (cb && typeof cb === "function") cb([]);
+            return [];
         }
     }
-    globalThis.getHome = getHome;
-    globalThis.search = search;
-    globalThis.load = load;
-    globalThis.loadStreams = loadStreams;
-})();
+
+    async function resolveStreamwish(url) {
+        try {
+            const res = await http_parallel([{ url: url, method: "GET" }]);
+            const body = String((Array.isArray(res) ? res[0] : res)?.body ?? "");
+            const match = body.match(/file:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/);
+            return match ? match[1] : null;
+        } catch { return null; }
+    }
+
+    async function resolveVidhide(url) {
+        try {
+            const res = await http_parallel([{ url: url, method: "GET" }]);
+            const body = String((Array.isArray(res) ? res[0] : res)?.body ?? "");
+            const match = body.match(/file:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/);
+            return match ? match[1] : null;
+        } catch { return null; }
+    }
+
+    async function resolveVoe(url) {
+        try {
+            const res = await http_parallel([{ url: url, method: "GET" }]);
+            const body = String((Array.isArray(res) ? res[0] : res)?.body ?? "");
+            const hls = body.match(/'hls':\s*["'](https?:\/\/[^"']+)["']/);
+            if (hls) return hls[1];
+
+            const directMp4 = body.match(/href=["'](https?:\/\/[^"']+\.mp4[^"']*)["']/);
+            return directMp4 ? directMp4[1] : null;
+        } catch { return null; }
+    }
