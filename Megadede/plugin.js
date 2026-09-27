@@ -811,7 +811,6 @@
         try {
             console.log("Cargando streams de:", url);
 
-            // 1. Obtener el HTML de la pagina del episodio
             const pageResult = await http_parallel([{
                 url: url,
                 method: "GET",
@@ -824,8 +823,7 @@
             const pageRes = Array.isArray(pageResult) ? pageResult[0] : pageResult;
             const html = String(pageRes?.body ?? "");
 
-            // 2. Extraer los iframes / enlaces de Embed69
-            const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
+            const iframeRegex = /<iframe[^>]+src=["\']([^"\']+)["\']/gi;
             const embedUrls = [];
             let match;
             while ((match = iframeRegex.exec(html)) !== null) {
@@ -839,7 +837,6 @@
             console.log("Embeds encontrados:", embedUrls.length);
             const streams = [];
 
-            // 3. Procesar cada Embed69
             for (let embedUrl of embedUrls) {
                 try {
                     const embedResult = await http_parallel([{
@@ -855,21 +852,21 @@
                     const embedHtml = String(embedRes?.body ?? "");
 
                     // STREAMWISH
-                    const wishMatch = embedHtml.match(/https?:\/\/[^\s"'<>]*(?:streamwish|awish|strwish)[^\s"'<>]+/i);
+                    const wishMatch = embedHtml.match(/https?:\/\/[^\s"\'<>]*(?:streamwish|awish|strwish)[^\s"\'<]+/i);
                     if (wishMatch) {
                         const streamUrl = await resolveStreamwish(wishMatch[0]);
                         if (streamUrl) streams.push({ name: "Streamwish", url: streamUrl, quality: "Auto" });
                     }
 
                     // VIDHIDE
-                    const vidhideMatch = embedHtml.match(/https?:\/\/[^\s"'<>]*(?:vidhide|fileLions)[^\s"'<>]+/i);
+                    const vidhideMatch = embedHtml.match(/https?:\/\/[^\s"\'<>]*(?:vidhide|fileLions)[^\s"\'<]+/i);
                     if (vidhideMatch) {
                         const streamUrl = await resolveVidhide(vidhideMatch[0]);
                         if (streamUrl) streams.push({ name: "Vidhide", url: streamUrl, quality: "Auto" });
                     }
 
                     // VOE
-                    const voeMatch = embedHtml.match(/https?:\/\/[^\s"'<>]*(?:voe\.sx|voe-unblock)[^\s"'<>]+/i);
+                    const voeMatch = embedHtml.match(/https?:\/\/[^\s"\'<>]*(?:voe\.sx|voe-unblock)[^\s"\'<]+/i);
                     if (voeMatch) {
                         const streamUrl = await resolveVoe(voeMatch[0]);
                         if (streamUrl) streams.push({ name: "VOE", url: streamUrl, quality: "Auto" });
@@ -894,7 +891,7 @@
         try {
             const res = await http_parallel([{ url: url, method: "GET" }]);
             const body = String((Array.isArray(res) ? res[0] : res)?.body ?? "");
-            const match = body.match(/file:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/);
+            const match = body.match(/file:\s*["\'](https?:\/\/[^"\']+\.m3u8[^"\']*)["\']/);
             return match ? match[1] : null;
         } catch { return null; }
     }
@@ -903,7 +900,7 @@
         try {
             const res = await http_parallel([{ url: url, method: "GET" }]);
             const body = String((Array.isArray(res) ? res[0] : res)?.body ?? "");
-            const match = body.match(/file:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/);
+            const match = body.match(/file:\s*["\'](https?:\/\/[^"\']+\.m3u8[^"\']*)["\']/);
             return match ? match[1] : null;
         } catch { return null; }
     }
@@ -912,15 +909,14 @@
         try {
             const res = await http_parallel([{ url: url, method: "GET" }]);
             const body = String((Array.isArray(res) ? res[0] : res)?.body ?? "");
-            const hls = body.match(/'hls':\s*["'](https?:\/\/[^"']+)["']/);
+            const hls = body.match(/'hls':\s*["\'](https?:\/\/[^"\']+)["\']/);
             if (hls) return hls[1];
 
-            const directMp4 = body.match(/href=["'](https?:\/\/[^"']+\.mp4[^"']*)["']/);
+            const directMp4 = body.match(/href=["\'](https?:\/\/[^"\']+\.mp4[^"\']*)["\']/);
             return directMp4 ? directMp4[1] : null;
         } catch { return null; }
     }
 
-    // Exponer metodos al scope global
     globalThis.getHome = getHome;
     globalThis.search = search;
     globalThis.load = load;
