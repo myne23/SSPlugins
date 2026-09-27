@@ -3,7 +3,7 @@
   "packageName": "com.mmilew.skystream.repo",
   "manifestVersion": 1,
   "pluginLists": [
-    "https://raw.githubusercontent.com/myne23/Megadede/main/dist/plugins.json"
+    "https://raw.githubusercontent.com/myne23/SSPlugins/main/dist/plugins.json"
   ],
   "description": "SkyStream plugins by mmilew"
 }
