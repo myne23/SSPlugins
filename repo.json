@@ -1,7 +1,7 @@
 {
-  "name": "Marcelo SkyStream Plugins",
-  "packageName": "com.mmilew.skystream.repo",
-  "description": "SkyStream plugins by mmilew",
+  "name": "Marcelo SkyStream Plugins — Test Megadede v2",
+  "packageName": "com.mmilew.skystream.repo.test",
+  "description": "Repositorio de pruebas para Megadede v2 en SkyStream",
   "manifestVersion": 1,
-  "pluginLists": ["https://raw.githubusercontent.com/myne23/SSPlugins/main/dist/plugins.json"]
+  "pluginLists": ["https://raw.githubusercontent.com/myne23/SSPlugins/test-megadede-v2/dist/plugins.json"]
 }
