@@ -1,0 +1,40 @@
+name: Deploy SkyStream Test Repository
+
+on:
+  push:
+    branches:
+      - test-megadede-v2
+    paths-ignore:
+      - "dist/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@v4
+        with:
+          ref: test-megadede-v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install SkyStream CLI
+        run: npm install -g skystream-cli
+
+      - name: Deploy test branch
+        run: skystream deploy -u "https://raw.githubusercontent.com/${{ github.repository }}/test-megadede-v2"
+
+      - name: Commit generated test package
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist
+          git diff --cached --quiet || git commit -m "Build Megadede v2 test package"
+          git push origin test-megadede-v2
