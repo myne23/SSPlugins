@@ -2,7 +2,7 @@
   {
     "packageName": "com.megadede.skystream",
     "name": "Megadede",
-    "version": 5,
+    "version": 6,
     "description": "Películas, series y animes de Megadede en español (sub / lat / esp). Resuelve Vidhide, Streamwish y Voe.",
     "baseUrl": "https://megadede.mobi",
     "authors": [
