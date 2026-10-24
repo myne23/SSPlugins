@@ -1,10 +1,18 @@
 {
   "packageName": "com.megadede.skystream",
   "name": "Megadede",
-  "version": 2,
+  "version": 3,
   "description": "Películas, series y animes de Megadede en español (sub / lat / esp). Resuelve Vidhide, Streamwish y Voe.",
   "baseUrl": "https://megadede.mobi",
-  "authors": ["mmilew"],
-  "languages": ["es"],
-  "categories": ["movie", "tv", "anime"]
+  "authors": [
+    "mmilew"
+  ],
+  "languages": [
+    "es"
+  ],
+  "categories": [
+    "movie",
+    "tv",
+    "anime"
+  ]
 }
