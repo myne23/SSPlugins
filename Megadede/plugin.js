@@ -776,7 +776,7 @@
         if (/master|playlist|index|hls|auto|adaptive/i.test(u)) n += 4;
         if (/1080|720|480|360|\d{3,4}p/i.test(u)) n -= 5;
         if (/\.txt(?:\?|$)/i.test(u)) n -= 1;
-        return score(b) - score(a);
+        return n;
       };
       return score(b) - score(a);
     });
