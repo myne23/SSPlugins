@@ -950,9 +950,9 @@
 
   function displayNameOf(server) {
     const s = server.toLowerCase();
-    if (s === "vidhide") return "Vidhide";
-    if (s === "streamwish") return "Streamwish";
-    if (s === "voe") return "Voe";
+    if (/vidhide|filelions/i.test(s)) return "Vidhide";
+    if (/streamwish|strwish|awish|embedwish/i.test(s)) return "Streamwish";
+    if (/^voe$|voe\\.sx|voe\\.to|voe-unblock/i.test(s)) return "Voe";
     return server;
   }
 
@@ -978,8 +978,9 @@
       if (/vidhide|filelions/i.test(low)) {
         res = await extractPackedHls(realUrl, "Vidhide");
       } else if (/^voe$|voe\.sx|voe\.to|voe-unblock/i.test(low)) {
-        if (Date.now() - startedAt <= VOE_START_LIMIT_MS) res = await extractVoeLink(realUrl);
-      } else if (/streamwish|strwish|awish/i.test(low)) {
+        // No lo descartamos solo porque otros servidores hayan tardado en resolverse.
+        res = await extractVoeLink(realUrl);
+      } else if (/streamwish|strwish|awish|embedwish/i.test(low)) {
         res = await extractPackedHls(realUrl, "Streamwish");
       }
 
@@ -992,7 +993,20 @@
           }
         } catch (e) {}
       }
-      return res ? makeStream(res, label) : null;
+      if (res) return makeStream(res, label);
+
+      // No ocultar una fuente conocida cuando la resolución directa falle.
+      // SkyStream puede intentar su extractor integrado y el usuario conserva la alternativa.
+      if (/vidhide|filelions|streamwish|strwish|awish|embedwish|^voe$|voe\.sx|voe\.to|voe-unblock/i.test(low)) {
+        console.log("resolveServer: fuente sin resolver; se conserva como alternativa: " + label);
+        return new StreamResult({
+          url: realUrl,
+          source: label,
+          quality: "Auto",
+          headers: { Referer: baseUrl() + "/", "User-Agent": UA },
+        });
+      }
+      return null;
     } catch (e) {
       console.log("resolveServer " + label + ": " + e);
       return null;
