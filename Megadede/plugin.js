@@ -729,27 +729,25 @@
     const seen = new Set();
     const add = (value) => {
       let u = String(value || "").trim()
-        .replace(/\\\\\\//g, "/")
+        .replace(/\\\//g, "/")
         .replace(/\\u0026/g, "&")
         .replace(/&amp;/g, "&")
         .replace(/^['"]|['"]$/g, "");
-      if (!u || !/\\.m3u8(?:[?#]|$)|\\.txt(?:[?#]|$)/i.test(u)) return;
-      if (!/^https?:\\/\\//i.test(u) && !u.startsWith("//") && !u.startsWith("/")) return;
+      if (!u || !/\.m3u8(?:[?#]|$)|\.txt(?:[?#]|$)/i.test(u)) return;
+      if (!/^https?:\/\//i.test(u) && !u.startsWith("//") && !u.startsWith("/")) return;
       if (!seen.has(u)) { seen.add(u); out.push(u); }
     };
 
-    // Vidhide y Streamwish cambian los nombres de las claves según el mirror.
-    const keyRx = /["'](?:hls4|hls2|hls3|master|playlist|m3u8|hls|file|source|src|url|link|video_url)["']\\s*:\\s*["']([^"']+)["']/gi;
+    const normalized = String(hay || "").replace(/\\\//g, "/").replace(/\\u0026/g, "&");
+    const keyRx = /["'](?:hls4|hls2|hls3|master|playlist|m3u8|hls|file|source|src|url|link|video_url)["']\s*:\s*["']([^"']+)["']/gi;
     let m;
-    while ((m = keyRx.exec(hay)) !== null) add(m[1]);
+    while ((m = keyRx.exec(normalized)) !== null) add(m[1]);
 
-    // Incluye URLs escapadas en JSON/P.A.C.K.E.R. y URLs relativas a la página.
-    const urlRx = /(?:https?:)?\\\\?\\/\\\\?\\/[^"'\\s<>\\\\]+|(?:\\.\\.?\\/|\\/)[^"'\\s<>\\\\]+/gi;
-    while ((m = urlRx.exec(hay)) !== null) add(m[0]);
+    const urlRx = /(?:https?:\/\/|\/\/|\/)[^"'\s<>\\]+/gi;
+    while ((m = urlRx.exec(normalized)) !== null) add(m[0]);
 
-    // Fallback para atributos de reproductor con una URL entre comillas.
-    const fileRx = /(?:file|src|source|hls|playlist)\\s*[:=]\\s*["']([^"']+)["']/gi;
-    while ((m = fileRx.exec(hay)) !== null) add(m[1]);
+    const fileRx = /(?:file|src|source|hls|playlist)\s*[:=]\s*["']([^"']+)["']/gi;
+    while ((m = fileRx.exec(normalized)) !== null) add(m[1]);
     return out;
   }
 
@@ -766,28 +764,25 @@
     const hay = (unpacked || "") + "\n" + body;
     const fallbackOrigin = kind === "Vidhide" ? "https://morencius.com" : originOf(finalUrl);
     const candidates = hlsCandidates(hay).map((u) => resolveRel(u, finalUrl, fallbackOrigin));
-    const urls = candidates.filter((u, i, a) => /^https?:\\/\\//i.test(u) && a.indexOf(u) === i);
+    const urls = candidates.filter((u, i, a) => /^https?:\/\//i.test(u) && a.indexOf(u) === i);
     if (!urls.length) {
       console.log(kind + ": no se encontró HLS");
       return null;
     }
 
-    // Primero probamos candidatos que parecen masters; algunos mirrors usan index.m3u8
-    // o nombres aleatorios y no el literal master.m3u8.
     const ranked = urls.slice().sort((a, b) => {
       const score = (u) => {
         let n = 0;
         if (isMasterUrl(u)) n += 8;
         if (/master|playlist|index|hls|auto|adaptive/i.test(u)) n += 4;
-        if (/1080|720|480|360|\\d{3,4}p/i.test(u)) n -= 5;
-        if (/\\.txt(?:\\?|$)/i.test(u)) n -= 1;
+        if (/1080|720|480|360|\d{3,4}p/i.test(u)) n -= 5;
+        if (/\.txt(?:\?|$)/i.test(u)) n -= 1;
         return n;
       };
       return score(b) - score(a);
     });
 
-    // Si una URL candidata devuelve una playlist HLS, inspeccionamos si es master
-    // (#EXT-X-STREAM-INF). Esto evita quedarnos con una variante fija de menor calidad.
+    // Verifica si algún candidato es una playlist master real, aunque tenga nombre aleatorio.
     for (const candidate of ranked.slice(0, 5)) {
       try {
         const pr = await http_get(candidate, { "User-Agent": UA, Referer: finalUrl });
@@ -798,8 +793,7 @@
       } catch (e) {}
     }
 
-    const chosen = ranked[0];
-    return { url: chosen, referer: finalUrl };
+    return { url: ranked[0], referer: finalUrl };
   }
 
   // ======================================================================
