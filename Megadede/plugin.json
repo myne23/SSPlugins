@@ -1,8 +1,0 @@
-{
-  "packageName": "com.megadede.skystream",
-  "name": "Megadede",
-  "version": 1,
-  "baseUrl": "https://megadede.mobi",
-  "language": "es",
-  "categories": ["movie", "tv", "anime"]
-}
