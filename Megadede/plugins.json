@@ -1,0 +1,9 @@
+[
+  {
+    "packageName": "com.megadede.skystream",
+    "name": "Megadede",
+    "version": 2,
+    "url": "Megadede/plugin.js",
+    "pluginJson": "Megadede/plugin.json"
+  }
+]
