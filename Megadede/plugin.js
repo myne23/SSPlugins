@@ -977,7 +977,7 @@
       let res = null;
       if (/vidhide|filelions/i.test(low)) {
         res = await extractPackedHls(realUrl, "Vidhide");
-      } else if (/^voe$|voe\.sx|voe-unblock/i.test(low)) {
+      } else if (/^voe$|voe\.sx|voe\.to|voe-unblock/i.test(low)) {
         if (Date.now() - startedAt <= VOE_START_LIMIT_MS) res = await extractVoeLink(realUrl);
       } else if (/streamwish|strwish|awish/i.test(low)) {
         res = await extractPackedHls(realUrl, "Streamwish");
@@ -1028,7 +1028,7 @@
       const directRx = /https?:\\?\/\\?\/[^\s"'<>\\]+/gi;
       while ((m = directRx.exec(html)) !== null) {
         const u = m[0].replace(/\\\//g, "/").replace(/&amp;/g, "&");
-        if (/vidhide|filelions|streamwish|strwish|awish|voe\.sx|voe-unblock|\/vidurl\//i.test(u)) addServer(u);
+        if (/vidhide|filelions|streamwish|strwish|awish|voe\.sx|voe\.to|voe-unblock|\/vidurl\//i.test(u)) addServer(u);
       }
 
       const tasks = servers.map(async (server) => {
@@ -1044,7 +1044,7 @@
         let hostName = "";
         if (/vidhide|filelions/i.test(lower)) hostName = "Vidhide";
         else if (/streamwish|strwish|awish/i.test(lower)) hostName = "Streamwish";
-        else if (/voe\.sx|voe-unblock/i.test(lower)) hostName = "Voe";
+        else if (/voe\.sx|voe\.to|voe-unblock/i.test(lower)) hostName = "Voe";
         if (hostName) {
           const resolved = await resolveServer(hostName, "", server, startedAt);
           if (resolved) return [resolved];
