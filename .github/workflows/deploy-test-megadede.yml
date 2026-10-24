@@ -25,6 +25,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Check JavaScript syntax
+        run: node --check Megadede/plugin.js
+
       - name: Install SkyStream CLI
         run: npm install -g skystream-cli
 
