@@ -1,0 +1,7 @@
+{
+  "name": "Marcelo SkyStream Plugins",
+  "packageName": "com.mmilew.skystream.repo",
+  "description": "SkyStream plugins by mmilew",
+  "manifestVersion": 1,
+  "pluginLists": ["https://raw.githubusercontent.com/myne23/SSPlugins/main/dist/plugins.json"]
+}
