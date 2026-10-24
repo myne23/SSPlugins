@@ -11,8 +11,6 @@
 
   // Tiempo máximo (ms) que le damos a resolver Voe por link (ALTCHA en JS puro es lento).
   const VOE_TIMEOUT_MS = 35000;
-  // Si loadStreams ya lleva más de esto, no arrancamos otro Voe.
-  const VOE_START_LIMIT_MS = 50000;
 
   const VOE_SEPARATORS = ["@$", "^^", "~@", "%?", "*~", "!!", "#&"];
 
@@ -751,7 +749,8 @@
     return out;
   }
 
-  // Devuelve { url, referer } o null. Busca el master aunque no se llame master.m3u8.
+  // Devuelve solo playlists HLS verificadas. No confunde la página embed ni una URL
+  // arbitraria con un video: puede arrancar y congelarse si la playlist no es válida.
   async function extractPackedHls(embedUrl, kind) {
     const r = await http_get(embedUrl, { "User-Agent": UA, Referer: baseUrl() + "/" });
     if (!isOk(r)) {
@@ -777,23 +776,33 @@
         if (/master|playlist|index|hls|auto|adaptive/i.test(u)) n += 4;
         if (/1080|720|480|360|\d{3,4}p/i.test(u)) n -= 5;
         if (/\.txt(?:\?|$)/i.test(u)) n -= 1;
-        return n;
+        return score(b) - score(a);
       };
       return score(b) - score(a);
     });
 
-    // Verifica si algún candidato es una playlist master real, aunque tenga nombre aleatorio.
-    for (const candidate of ranked.slice(0, 5)) {
+    let validMedia = null;
+    for (const candidate of ranked.slice(0, 10)) {
       try {
         const pr = await http_get(candidate, { "User-Agent": UA, Referer: finalUrl });
         const text = String(pr && pr.body || "");
-        if (isOk(pr) && /#EXTM3U/i.test(text) && /#EXT-X-STREAM-INF/i.test(text)) {
+        if (!isOk(pr) || !/^\s*#EXTM3U\b/m.test(text)) continue;
+        if (/#EXT-X-STREAM-INF\b/i.test(text)) {
+          console.log(kind + ": playlist master verificada");
           return { url: candidate, referer: finalUrl };
+        }
+        if (/#EXTINF\b|#EXT-X-TARGETDURATION\b/i.test(text) && !validMedia) {
+          validMedia = candidate;
         }
       } catch (e) {}
     }
 
-    return { url: ranked[0], referer: finalUrl };
+    if (validMedia) {
+      console.log(kind + ": playlist media verificada (sin master)");
+      return { url: validMedia, referer: finalUrl };
+    }
+    console.log(kind + ": candidatos HLS encontrados, pero ninguno devolvió una playlist válida");
+    return null;
   }
 
   // ======================================================================
