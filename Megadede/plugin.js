@@ -576,6 +576,9 @@
         return;
       }
 
+      // SkyStream deshabilita Play si una película no tiene episodios.
+      // La película es un único destino reproducible: usamos su propia URL
+      // como episodio sintético para que el launcher invoque loadStreams(url).
       cb({
         success: true,
         data: new MultimediaItem({
@@ -585,6 +588,14 @@
           type: "movie",
           year: year,
           description: description,
+          episodes: [
+            new Episode({
+              name: "Película",
+              url: url,
+              season: 1,
+              episode: 1,
+            }),
+          ],
         }),
       });
     } catch (e) {
