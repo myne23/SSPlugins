@@ -2,14 +2,20 @@
   {
     "packageName": "com.megadede.skystream",
     "name": "Megadede",
-    "version": 1,
+    "version": 2,
+    "description": "Películas, series y animes de Megadede en español (sub / lat / esp). Resuelve Vidhide, Streamwish y Voe.",
     "baseUrl": "https://megadede.mobi",
-    "language": "es",
+    "authors": [
+      "mmilew"
+    ],
+    "languages": [
+      "es"
+    ],
     "categories": [
       "movie",
       "tv",
       "anime"
     ],
-    "url": "https://raw.githubusercontent.com/myne23/SSPlugins/main/dist/com.megadede.skystream.sky"
+    "url": "https://raw.githubusercontent.com/myne23/SSPlugins/test-megadede-v2/dist/com.megadede.skystream.sky"
   }
 ]
