@@ -407,10 +407,10 @@
         const im = /<img[^>]+(?:src|data-src)=["']([^"']+)["']/i.exec(article);
         poster = im ? im[1] : "";
       } else {
-        const h = /href=["'](\/(?:pelicula|serie|anime)\/[^"']+)["']/i.exec(article);
+        const h = /href=["']([^"']+)["']/i.exec(article);
         if (!h) continue;
         href = h[1];
-        const img = /<img[^>]+src=["']([^"']+)["'][^>]*>/i.exec(article);
+        const img = /<img[^>]+(?:src|data-src)=["']([^"']+)["'][^>]*>/i.exec(article);
         poster = img ? img[1] : "";
         const alt = img ? /alt=["']([^"']+)["']/i.exec(img[0]) : null;
         const ttl = img ? /title=["']([^"']+)["']/i.exec(img[0]) : null;
@@ -446,23 +446,28 @@
   async function getHome(cb) {
     try {
       const cats = [
-        ["Películas", "/peliculas"],
-        ["Series", "/series"],
-        ["Animes", "/animes"],
+        { name: "Películas", path: "/peliculas", type: "movie" },
+        { name: "Series", path: "/series", type: "series" },
+        { name: "Animes", path: "/animes", type: "anime" },
       ];
-      const responses = await Promise.all(
-        cats.map((c) => fetchPage(baseUrl() + c[1]).catch(() => null))
-      );
-      const data = {};
-      cats.forEach((c, i) => {
+      const requests = [];
+      for (const cat of cats) {
+        for (let page = 1; page <= 5; page++) requests.push({ cat, url: baseUrl() + cat.path + "?page=" + page });
+      }
+      const responses = await Promise.all(requests.map((q) => fetchPage(q.url).catch(() => null)));
+      const data = { "Películas": [], "Series": [], "Animes": [] };
+      const seen = { "Películas": {}, "Series": {}, "Animes": {} };
+      for (let i = 0; i < requests.length; i++) {
         const r = responses[i];
-        if (r && isOk(r)) {
-          const items = parseCards(r.body || "", "home");
-          if (items.length) data[c[0]] = items;
+        if (!r || !isOk(r)) continue;
+        const category = requests[i].cat.name;
+        for (const item of parseCards(r.body || "", "home")) {
+          if (!item.url || seen[category][item.url]) continue;
+          item.type = requests[i].cat.type;
+          seen[category][item.url] = true;
+          data[category].push(item);
         }
-      });
-      // El primer carrusel (hero) = lo primero de películas.
-      if (data["Películas"]) data["Trending"] = data["Películas"].slice(0, 10);
+      }
       cb({ success: true, data: data });
     } catch (e) {
       cb({ success: false, errorCode: "HOME_ERROR", message: String((e && e.message) || e) });
@@ -683,9 +688,16 @@
   const RX_PACKED = /eval\(function\(p,a,c,k,e,d\)\{[\s\S]*?\}\('([\s\S]*?)',(\d+),(\d+),'([\s\S]*?)'\.split\('\|'\)\)\)/;
 
   function unpackAll(html) {
+    try {
+      if (typeof getAndUnpack === "function") {
+        const nativeResult = getAndUnpack(html);
+        if (nativeResult && String(nativeResult) !== String(html)) return String(nativeResult);
+      }
+    } catch (e) {}
     const m = RX_PACKED.exec(html);
     if (!m) return null;
-    return unpackPacker(m[1], parseInt(m[2], 10), m[4].split("|"));
+    try { return unpackPacker(m[1], parseInt(m[2], 10), m[4].split("|")); }
+    catch (e) { return null; }
   }
 
   function resolveRel(u, pageUrl, fallbackOrigin) {
@@ -730,11 +742,8 @@
 
     const fallbackOrigin = kind === "Vidhide" ? "https://morencius.com" : "";
     const urls = cands.map((c) => resolveRel(c, finalUrl, fallbackOrigin));
-    let chosen = urls[0];
-    if (kind === "Streamwish") {
-      const master = urls.find(isMasterUrl);
-      if (master) chosen = master;
-    }
+    const master = urls.find(isMasterUrl);
+    const chosen = master || urls.find((u) => /\.m3u8(?:\?|$)/i.test(u)) || urls[0];
     return { url: chosen, referer: embedUrl };
   }
 
@@ -910,23 +919,22 @@
   // Resuelve un link de servidor concreto -> StreamResult | null
   async function resolveServer(serverName, language, realUrl, startedAt) {
     if (!realUrl) return null;
-    const lang = LANG_LABEL[language] || language.toLowerCase();
+    const lang = LANG_LABEL[language] || String(language || "").toLowerCase();
     const display = displayNameOf(serverName);
-    const label = display + " " + lang;
-    const low = serverName.toLowerCase();
+    const label = display + (lang ? " " + lang : "");
+    const low = String(serverName || "").toLowerCase();
 
     try {
       let res = null;
-      if (low === "vidhide") {
+      if (/vidhide|filelions/i.test(low)) {
         res = await extractPackedHls(realUrl, "Vidhide");
-      } else if (low === "voe") {
-        if (Date.now() - startedAt > VOE_START_LIMIT_MS) return null;
-        res = await extractVoeLink(realUrl);
-      } else if (low === "streamwish") {
+      } else if (/^voe$|voe\.sx|voe-unblock/i.test(low)) {
+        if (Date.now() - startedAt <= VOE_START_LIMIT_MS) res = await extractVoeLink(realUrl);
+      } else if (/streamwish|strwish|awish/i.test(low)) {
         res = await extractPackedHls(realUrl, "Streamwish");
       }
 
-      if (!res && low !== "voe" && typeof loadExtractor === "function") {
+      if (!res && typeof loadExtractor === "function") {
         try {
           const links = await loadExtractor(realUrl, baseUrl());
           if (links && links.length) {
@@ -954,46 +962,53 @@
       const html = r.body || "";
 
       const servers = [];
+      const addServer = (value) => {
+        const raw = String(value || "").trim().replace(/&amp;/g, "&");
+        if (!raw || /^(?:about:blank|javascript:|#)$/i.test(raw)) return;
+        const u = absoluteUrl(raw);
+        if (!/^https?:\/\//i.test(u)) return;
+        if (!servers.includes(u)) servers.push(u);
+      };
       const rx = /changeServer\(\s*['"]([^'"]+)['"]/gi;
       let m;
-      while ((m = rx.exec(html)) !== null) {
-        const u = absoluteUrl(m[1]);
-        if (servers.indexOf(u) < 0) servers.push(u);
-      }
-      const iframe = /<iframe[^>]+src=["']([^"']*\/vidurl\/[^"']+)["']/i.exec(html);
-      if (iframe) {
-        const u = absoluteUrl(iframe[1]);
-        if (servers.indexOf(u) < 0) servers.push(u);
+      while ((m = rx.exec(html)) !== null) addServer(m[1]);
+      const iframeRx = /<(?:iframe|embed)\b[^>]*(?:src|data-src)\s*=\s*["']([^"']+)["'][^>]*>/gi;
+      while ((m = iframeRx.exec(html)) !== null) addServer(m[1]);
+      const dataUrlRx = /(?:data-src|data-embed|data-link)\s*=\s*["'](https?:\/\/[^"']+)["']/gi;
+      while ((m = dataUrlRx.exec(html)) !== null) addServer(m[1]);
+      const directRx = /https?:\\?\/\\?\/[^\s"'<>\\]+/gi;
+      while ((m = directRx.exec(html)) !== null) {
+        const u = m[0].replace(/\\\//g, "/").replace(/&amp;/g, "&");
+        if (/vidhide|filelions|streamwish|strwish|awish|voe\.sx|voe-unblock|\/vidurl\//i.test(u)) addServer(u);
       }
 
       const tasks = servers.map(async (server) => {
         if (/\/vidurl\//i.test(server)) {
           let links = [];
-          try {
-            links = await extractEmbed69Links(server);
-          } catch (e) {
-            console.log("Embed69 ERROR: " + e);
-          }
+          try { links = await extractEmbed69Links(server); }
+          catch (e) { console.log("Embed69 ERROR: " + e); }
           links.sort((a, b) => (LANG_ORDER[a.language] ?? 9) - (LANG_ORDER[b.language] ?? 9));
-          const out = await Promise.all(
-            links.map((l) => resolveServer(l.server, l.language, l.url, startedAt))
-          );
+          const out = await Promise.all(links.map((l) => resolveServer(l.server, l.language, l.url, startedAt)));
           return out.filter(Boolean);
         }
-        // Servidor directo (no Embed69): intento genérico.
+        const lower = server.toLowerCase();
+        let hostName = "";
+        if (/vidhide|filelions/i.test(lower)) hostName = "Vidhide";
+        else if (/streamwish|strwish|awish/i.test(lower)) hostName = "Streamwish";
+        else if (/voe\.sx|voe-unblock/i.test(lower)) hostName = "Voe";
+        if (hostName) {
+          const resolved = await resolveServer(hostName, "", server, startedAt);
+          if (resolved) return [resolved];
+        }
         if (typeof loadExtractor === "function") {
           try {
             const links = await loadExtractor(server, pageUrl);
-            return (links || []).map(
-              (l) =>
-                new StreamResult({
-                  url: l.url,
-                  source: l.name || l.source || "Servidor",
-                  quality: l.quality || "Auto",
-                  headers: Object.assign({ "User-Agent": UA }, l.referer ? { Referer: l.referer } : {}, l.headers || {}),
-                })
-            );
-          } catch (e) {}
+            return (links || []).map((l) => new StreamResult({
+              url: l.url, source: l.name || l.source || "Servidor",
+              quality: l.quality || "Auto",
+              headers: Object.assign({ "User-Agent": UA }, l.referer ? { Referer: l.referer } : {}, l.headers || {}),
+            }));
+          } catch (e) { console.log("Extractor directo falló: " + e); }
         }
         return [];
       });
