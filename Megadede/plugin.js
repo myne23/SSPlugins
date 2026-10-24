@@ -751,10 +751,12 @@
 
   // Devuelve solo playlists HLS verificadas. No confunde la página embed ni una URL
   // arbitraria con un video: puede arrancar y congelarse si la playlist no es válida.
-  async function extractPackedHls(embedUrl, kind) {
+  async function extractPackedHls(embedUrl, kind, language) {
+    const variant = String(language || "").toUpperCase();
+    const tag = kind + (variant ? " " + variant : "");
     const r = await http_get(embedUrl, { "User-Agent": UA, Referer: baseUrl() + "/" });
     if (!isOk(r)) {
-      console.log(kind + ": HTTP " + statusOf(r));
+      console.log(tag + ": HTTP " + statusOf(r));
       return null;
     }
     const body = r.body || "";
@@ -765,7 +767,7 @@
     const candidates = hlsCandidates(hay).map((u) => resolveRel(u, finalUrl, fallbackOrigin));
     const urls = candidates.filter((u, i, a) => /^https?:\/\//i.test(u) && a.indexOf(u) === i);
     if (!urls.length) {
-      console.log(kind + ": no se encontró HLS");
+      console.log(tag + ": no se encontró HLS");
       return null;
     }
 
@@ -788,7 +790,7 @@
         const text = String(pr && pr.body || "");
         if (!isOk(pr) || !/^\s*#EXTM3U\b/m.test(text)) continue;
         if (/#EXT-X-STREAM-INF\b/i.test(text)) {
-          console.log(kind + ": playlist master verificada");
+          console.log(tag + ": playlist master verificada; URL=" + candidate.split("?")[0]);
           return { url: candidate, referer: finalUrl };
         }
         if (/#EXTINF\b|#EXT-X-TARGETDURATION\b/i.test(text) && !validMedia) {
@@ -798,10 +800,10 @@
     }
 
     if (validMedia) {
-      console.log(kind + ": playlist media verificada (sin master)");
+      console.log(tag + ": playlist media verificada (sin master); URL=" + validMedia.split("?")[0]);
       return { url: validMedia, referer: finalUrl };
     }
-    console.log(kind + ": candidatos HLS encontrados, pero ninguno devolvió una playlist válida");
+    console.log(tag + ": candidatos HLS encontrados, pero ninguno devolvió una playlist válida");
     return null;
   }
 
@@ -985,12 +987,12 @@
     try {
       let res = null;
       if (/vidhide|filelions/i.test(low)) {
-        res = await extractPackedHls(realUrl, "Vidhide");
+        res = await extractPackedHls(realUrl, "Vidhide", language);
       } else if (/^voe$|voe\.sx|voe\.to|voe-unblock/i.test(low)) {
         // No lo descartamos solo porque otros servidores hayan tardado en resolverse.
         res = await extractVoeLink(realUrl);
       } else if (/streamwish|strwish|awish|embedwish/i.test(low)) {
-        res = await extractPackedHls(realUrl, "Streamwish");
+        res = await extractPackedHls(realUrl, "Streamwish", language);
       }
 
       if (!res && typeof loadExtractor === "function") {
@@ -1004,16 +1006,10 @@
       }
       if (res) return makeStream(res, label);
 
-      // No ocultar una fuente conocida cuando la resolución directa falle.
-      // SkyStream puede intentar su extractor integrado y el usuario conserva la alternativa.
-      if (/vidhide|filelions|streamwish|strwish|awish|embedwish|^voe$|voe\.sx|voe\.to|voe-unblock/i.test(low)) {
-        console.log("resolveServer: fuente sin resolver; se conserva como alternativa: " + label);
-        return new StreamResult({
-          url: realUrl,
-          source: label,
-          quality: "Auto",
-          headers: { Referer: baseUrl() + "/", "User-Agent": UA },
-        });
+      // Nunca devolver la página embed como si fuera un vídeo reproducible.
+      // Si la extracción directa y el extractor integrado fallan, se omite esta fuente.
+      if (/vidhide|filelions|streamwish|strwish|awish|embedwish|^voe$|voe\\.sx|voe\\.to|voe-unblock/i.test(low)) {
+        console.log("resolveServer: no se obtuvo URL de vídeo para " + label + "; se omite el embed");
       }
       return null;
     } catch (e) {
